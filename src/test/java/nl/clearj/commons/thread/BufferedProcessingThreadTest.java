@@ -1,24 +1,32 @@
 package nl.clearj.commons.thread;
 
+import static org.junit.Assert.assertEquals;
+
 import org.junit.After;
-import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
 public class BufferedProcessingThreadTest {
 
-	private BufferedProcessingThread<Object, Object> bufferedProcessingThread;
-	private int processedCount;
+	int processedCount;
 
 	@Before
 	public void setUp() throws Exception {
 		processedCount = 0;
-		bufferedProcessingThread = new BufferedProcessingThread<Object, Object>("test thread", true) {
+	}
+
+	@After
+	public void tearDown() throws Exception {
+	}
+
+	@Test
+	public void testBufferConcurrentReadWrite() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
+				"test thread", true) {
 
 			@Override
 			void processValue(Object valueToProcess) {
-				Assert.assertNotNull(valueToProcess);
-				synchronized (bufferedProcessingThread) {
+				synchronized (this) {
 					processedCount++;
 				}
 			}
@@ -29,23 +37,16 @@ public class BufferedProcessingThreadTest {
 
 			@Override
 			void finalizeProcessing() {
+				if (processedCount == 100) {
+					interrupt();
+				}
 			}
 		};
-	}
-
-	@After
-	public void tearDown() throws Exception {
-	}
-
-	@Test
-	public void test() throws InterruptedException {
-		long start = System.currentTimeMillis();
-		for (int i = 1; i < (1000 * 10000); i++) {
+		bufferedProcessingThread.setProcessingTriggerSize(0);
+		for (int i = 1; i <= 100; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
-		System.out.println(processedCount);
-		System.out.println(bufferedProcessingThread.size());
-		System.out.println(processedCount + bufferedProcessingThread.size());
-		System.out.println((System.currentTimeMillis() - start) + "ms");
+		bufferedProcessingThread.join();
+		assertEquals(100, processedCount);
 	}
 }

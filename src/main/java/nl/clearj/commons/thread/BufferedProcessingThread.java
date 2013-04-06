@@ -7,12 +7,11 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class BufferedProcessingThread<K, V> extends Thread {
 
-	private static final long PROCESSING_INTERVAL = 4L * 60 * 60 * 1000;
-	private static final int SIZE_TRIGGERS_PROCESSING = 10000;
-	private static final int SIZE_TOO_BIG_TO_ACCEPT_NEW_ITEMS = 2 * SIZE_TRIGGERS_PROCESSING;
+	private long flushBufferIntervalMs = 4L * 60 * 60 * 1000;
+	private int processingTriggerSize = 10000;
+	private int maxSize = 2 * processingTriggerSize;
 	/** storage of key-values before processing is triggered */
 	private final Map<K, V> bufferToProcess = new ConcurrentHashMap<K, V>();
-//	private final Map<K, V> bufferToProcess = Collections.synchronizedMap(new HashMap<K,V>());
 	private long nextProcessingTime;
 
 	public BufferedProcessingThread(String threadName, boolean isDaemon) {
@@ -21,11 +20,23 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		start();
 	}
 
+	public void setFlushBufferIntervalMs(long flushBufferIntervalMs) {
+		this.flushBufferIntervalMs = flushBufferIntervalMs;
+	}
+
+	public void setProcessingTriggerSize(int processingTriggerSize) {
+		this.processingTriggerSize = processingTriggerSize;
+	}
+
+	public void setMaxSize(int maxSize) {
+		this.maxSize = maxSize;
+	}
+
 	/**
 	 * thread safe method to add new key-value pair
 	 */
 	public void put(K key, V value) {
-		if (bufferToProcess.size() < SIZE_TOO_BIG_TO_ACCEPT_NEW_ITEMS) {
+		if (bufferToProcess.size() < maxSize) {
 			bufferToProcess.put(key, value);
 		}
 		if (isBufferBigEnough()) {
@@ -36,13 +47,13 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	}
 
 	private boolean isBufferBigEnough() {
-		return bufferToProcess.size() > SIZE_TRIGGERS_PROCESSING;
+		return bufferToProcess.size() > processingTriggerSize;
 	}
 
 	@Override
 	public void run() {
 		while (!isInterrupted()) {
-			nextProcessingTime = System.currentTimeMillis() + PROCESSING_INTERVAL;
+			nextProcessingTime = System.currentTimeMillis() + flushBufferIntervalMs;
 			try {
 				waitBeforeNextProcessing();
 			} catch (InterruptedException e) {
