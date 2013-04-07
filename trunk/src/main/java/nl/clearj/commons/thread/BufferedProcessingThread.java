@@ -7,7 +7,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class BufferedProcessingThread<K, V> extends Thread {
 
-	private long flushBufferIntervalMs = 4L * 60 * 60 * 1000;
+	private long flushBufferMaxIntervalMs = 4L * 60 * 60 * 1000;
 	private int processingTriggerSize = 10000;
 	private int maxSize = 2 * processingTriggerSize;
 	/** storage of key-values before processing is triggered */
@@ -20,8 +20,8 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		start();
 	}
 
-	public void setFlushBufferIntervalMs(long flushBufferIntervalMs) {
-		this.flushBufferIntervalMs = flushBufferIntervalMs;
+	public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {
+		this.flushBufferMaxIntervalMs = flushBufferMaxIntervalMs;
 	}
 
 	public void setProcessingTriggerSize(int processingTriggerSize) {
@@ -53,7 +53,7 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	@Override
 	public void run() {
 		while (!isInterrupted()) {
-			nextProcessingTime = System.currentTimeMillis() + flushBufferIntervalMs;
+			nextProcessingTime = System.currentTimeMillis() + flushBufferMaxIntervalMs;
 			try {
 				waitBeforeNextProcessing();
 			} catch (InterruptedException e) {
