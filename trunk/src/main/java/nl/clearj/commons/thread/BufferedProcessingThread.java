@@ -17,7 +17,6 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	public BufferedProcessingThread(String threadName, boolean isDaemon) {
 		super(threadName);
 		setDaemon(isDaemon);
-		start();
 	}
 
 	public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {

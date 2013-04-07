@@ -63,6 +63,7 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(2);
+		bufferedProcessingThread.start();
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.join();
@@ -100,6 +101,7 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(2);
+		bufferedProcessingThread.start();
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.put(new Object(), value3);
@@ -129,8 +131,9 @@ public class BufferedProcessingThreadTest {
 			void finalizeProcessing() {
 			}
 		};
-		bufferedProcessingThread.put(new Object(), new Object());
 		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
+		bufferedProcessingThread.start();
+		bufferedProcessingThread.put(new Object(), new Object());
 		Thread.sleep(90);
 		assertEquals(0, processCount);
 		Thread.sleep(20);
@@ -160,6 +163,7 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(0);
+		bufferedProcessingThread.start();
 		for (int i = 1; i <= concurrencyTestSize; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
