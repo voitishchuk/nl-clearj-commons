@@ -112,6 +112,32 @@ public class BufferedProcessingThreadTest {
 	}
 
 	@Test
+	public void testProcessingAfterMaxInterval() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
+				"test thread", true) {
+
+			@Override
+			void initializeProcessing() {
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.put(new Object(), new Object());
+		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
+		Thread.sleep(90);
+		assertEquals(0, processCount);
+		Thread.sleep(20);
+		assertEquals(1, processCount);
+	}
+
+	@Test
 	public void testBufferConcurrentReadWrite() throws InterruptedException {
 		final int concurrencyTestSize = 1000;
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
