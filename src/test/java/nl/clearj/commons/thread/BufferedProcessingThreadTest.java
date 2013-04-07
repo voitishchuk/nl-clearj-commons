@@ -12,7 +12,6 @@ import org.junit.Test;
 
 public class BufferedProcessingThreadTest {
 
-	private static final long SLEEP_AFTER_INSERT = 10;
 	private int initializeCount;
 	private int processCount;
 	private Set<Object> processedValues;
@@ -34,8 +33,7 @@ public class BufferedProcessingThreadTest {
 	public void testBasicProcessing() throws InterruptedException {
 		final Object value1 = new Object();
 		final Object value2 = new Object();
-		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
 
 			@Override
 			void initializeProcessing() {
@@ -80,8 +78,7 @@ public class BufferedProcessingThreadTest {
 		final Object value2 = new Object();
 		final Object value3 = new Object();
 		final Object value4 = new Object();
-		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
 
 			@Override
 			void initializeProcessing() {
@@ -104,13 +101,9 @@ public class BufferedProcessingThreadTest {
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(2);
 		bufferedProcessingThread.put(new Object(), value1);
-		Thread.sleep(SLEEP_AFTER_INSERT);
 		bufferedProcessingThread.put(new Object(), value2);
-		Thread.sleep(SLEEP_AFTER_INSERT);
 		bufferedProcessingThread.put(new Object(), value3);
-		Thread.sleep(SLEEP_AFTER_INSERT);
 		bufferedProcessingThread.put(new Object(), value4);
-		Thread.sleep(SLEEP_AFTER_INSERT);
 		bufferedProcessingThread.join();
 		assertEquals(2, initializeCount);
 		assertEquals(4, processCount);
@@ -146,5 +139,25 @@ public class BufferedProcessingThreadTest {
 		}
 		bufferedProcessingThread.join();
 		assertEquals(concurrencyTestSize, processCount);
+	}
+
+	private static abstract class GiveTimeToProcessAfterInsertBufferedProcessingThread<K, V> extends
+			BufferedProcessingThread<K, V> {
+
+		private static final long SLEEP_AFTER_INSERT = 10;
+
+		public GiveTimeToProcessAfterInsertBufferedProcessingThread() {
+			super("test thread", true);
+		}
+
+		@Override
+		public void put(K key, V value) {
+			super.put(key, value);
+			try {
+				Thread.sleep(SLEEP_AFTER_INSERT);
+			} catch (InterruptedException e) {
+				throw new RuntimeException(e);
+			}
+		}
 	}
 }
