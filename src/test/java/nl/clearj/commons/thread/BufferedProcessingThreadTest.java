@@ -12,6 +12,7 @@ import org.junit.Test;
 
 public class BufferedProcessingThreadTest {
 
+	private static final long SLEEP_AFTER_INSERT = 10;
 	private int initializeCount;
 	private int processCount;
 	private Set<Object> processedValues;
@@ -30,7 +31,7 @@ public class BufferedProcessingThreadTest {
 	}
 
 	@Test
-	public void testProcessingOfItemsInOneGo() throws InterruptedException {
+	public void testProcessingOfItemsInOneRun() throws InterruptedException {
 		final Object value1 = new Object();
 		final Object value2 = new Object();
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
@@ -71,6 +72,50 @@ public class BufferedProcessingThreadTest {
 		assertEquals(2, processCount);
 		assertEquals(new HashSet<Object>(Arrays.asList(value1, value2)), processedValues);
 		assertEquals(1, finalizeCount);
+	}
+
+	@Test
+	public void testProcessingOfItemsInTwoRuns() throws InterruptedException {
+		final Object value1 = new Object();
+		final Object value2 = new Object();
+		final Object value3 = new Object();
+		final Object value4 = new Object();
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
+				"test thread", true) {
+
+			@Override
+			void initializeProcessing() {
+				initializeCount++;
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+				processedValues.add(valueToProcess);
+			}
+
+			@Override
+			void finalizeProcessing() {
+				finalizeCount++;
+				if (finalizeCount == 2) {
+					interrupt();
+				}
+			}
+		};
+		bufferedProcessingThread.setProcessingTriggerSize(2);
+		bufferedProcessingThread.put(new Object(), value1);
+		Thread.sleep(SLEEP_AFTER_INSERT);
+		bufferedProcessingThread.put(new Object(), value2);
+		Thread.sleep(SLEEP_AFTER_INSERT);
+		bufferedProcessingThread.put(new Object(), value3);
+		Thread.sleep(SLEEP_AFTER_INSERT);
+		bufferedProcessingThread.put(new Object(), value4);
+		Thread.sleep(SLEEP_AFTER_INSERT);
+		bufferedProcessingThread.join();
+		assertEquals(2, initializeCount);
+		assertEquals(4, processCount);
+		assertEquals(new HashSet<Object>(Arrays.asList(value1, value2, value3, value4)), processedValues);
+		assertEquals(2, finalizeCount);
 	}
 
 	@Test
