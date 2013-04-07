@@ -47,7 +47,7 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	}
 
 	private boolean isBufferBigEnough() {
-		return bufferToProcess.size() > processingTriggerSize;
+		return bufferToProcess.size() >= processingTriggerSize;
 	}
 
 	@Override
@@ -84,6 +84,8 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 				// was called interrupt() == shutdown is requested
 				return;
 			}
+			// TODO catch RuntimeExcdeption
+			// TODO processed values
 			processValue(valueProcess);
 		}
 		finalizeProcessing();
