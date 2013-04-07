@@ -31,7 +31,7 @@ public class BufferedProcessingThreadTest {
 	}
 
 	@Test
-	public void testProcessingOfItemsInOneRun() throws InterruptedException {
+	public void testBasicProcessing() throws InterruptedException {
 		final Object value1 = new Object();
 		final Object value2 = new Object();
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
@@ -75,7 +75,7 @@ public class BufferedProcessingThreadTest {
 	}
 
 	@Test
-	public void testProcessingOfItemsInTwoRuns() throws InterruptedException {
+	public void testProcessingOfItemsInSeveralRuns() throws InterruptedException {
 		final Object value1 = new Object();
 		final Object value2 = new Object();
 		final Object value3 = new Object();
@@ -120,6 +120,7 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testBufferConcurrentReadWrite() throws InterruptedException {
+		final int concurrencyTestSize = 1000;
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
 				"test thread", true) {
 
@@ -129,23 +130,21 @@ public class BufferedProcessingThreadTest {
 
 			@Override
 			void processValue(Object valueToProcess) {
-				synchronized (this) {
 					processCount++;
-				}
 			}
 
 			@Override
 			void finalizeProcessing() {
-				if (processCount == 100) {
+				if (processCount == concurrencyTestSize) {
 					interrupt();
 				}
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(0);
-		for (int i = 1; i <= 100; i++) {
+		for (int i = 1; i <= concurrencyTestSize; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
 		bufferedProcessingThread.join();
-		assertEquals(100, processCount);
+		assertEquals(concurrencyTestSize, processCount);
 	}
 }
