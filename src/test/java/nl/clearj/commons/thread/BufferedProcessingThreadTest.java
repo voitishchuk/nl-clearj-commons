@@ -130,7 +130,7 @@ public class BufferedProcessingThreadTest {
 
 			@Override
 			void processValue(Object valueToProcess) {
-					processCount++;
+				processCount++;
 			}
 
 			@Override
