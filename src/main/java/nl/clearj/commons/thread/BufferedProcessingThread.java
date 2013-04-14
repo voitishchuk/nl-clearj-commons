@@ -28,16 +28,31 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		start();
 	}
 
+	/**
+	 * @param flushBufferMaxIntervalMs
+	 *            all buffered values will be processed after this time if the
+	 *            buffer size did not achieve trigger size
+	 */
 	public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {
 		this.flushBufferMaxIntervalMs = flushBufferMaxIntervalMs;
 		notifyWaitingProcessingThread();
 	}
 
+	/**
+	 * @param maxSize
+	 *            if processing of values is slower then arrival, then new
+	 *            values are ignored if buffer size achieved this size
+	 */
 	public void setMaxSize(int maxSize) {
 		checkConsistency(processingTriggerSize, maxSize);
 		this.maxSize = maxSize;
 	}
 
+	/**
+	 * @param processingTriggerSize
+	 *            if buffer size achieved this value this immediately wakes up
+	 *            processing thread of this object
+	 */
 	public void setProcessingTriggerSize(int processingTriggerSize) {
 		checkConsistency(processingTriggerSize, maxSize);
 		this.processingTriggerSize = processingTriggerSize;
@@ -61,6 +76,7 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		if (bufferToProcess.size() < maxSize) {
 			bufferToProcess.put(key, value);
 		}
+		// TODO logging of ignored values
 		if (isBufferedEnoughToStartProcessing()) {
 			notifyWaitingProcessingThread();
 		}
@@ -109,7 +125,6 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 				return;
 			}
 			// TODO catch RuntimeExcdeption
-			// TODO test processed values not null
 			processValue(valueProcess);
 		}
 		finalizeProcessing();
