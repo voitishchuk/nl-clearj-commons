@@ -127,7 +127,7 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		for (V valueProcess : pullValuesToProcess()) {
 			if (isInterrupted()) {
 				// was called interrupt() == shutdown is requested
-				return;
+				break;
 			}
 			processValue(valueProcess);
 		}
