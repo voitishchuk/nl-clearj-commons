@@ -4,8 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.logging.Logger;
 
 public abstract class BufferedProcessingThread<K, V> extends Thread {
+
+	private static final Logger LOG = Logger.getLogger(BufferedProcessingThread.class.getName());
 
 	private static final long DEFAULT_FLUSH_INTERVAL_MS = 1L * 60 * 60 * 1000;
 	private static final int DEFAULT_TRIGGER_SIZE = 10000;
@@ -75,8 +78,10 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	public void put(K key, V value) {
 		if (bufferToProcess.size() < maxSize) {
 			bufferToProcess.put(key, value);
+		} else {
+			LOG.warning("ignoring value because buffer is too big; try to increase maxSize or improve processing throughput");
 		}
-		// TODO logging of ignored values
+		// TODO test this check
 		if (isBufferedEnoughToStartProcessing()) {
 			notifyWaitingProcessingThread();
 		}
@@ -124,7 +129,6 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 				// was called interrupt() == shutdown is requested
 				return;
 			}
-			// TODO catch RuntimeExcdeption
 			processValue(valueProcess);
 		}
 		finalizeProcessing();
@@ -139,20 +143,26 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	}
 
 	/**
-	 * implementation should check interruption status using isInterrupted() and
-	 * exit ASAP on interruption
+	 * Implementation should check interruption status using isInterrupted() and
+	 * exit ASAP on interruption.
+	 * <p>
+	 * Unhandled RuntimeException terminates processing thread.
 	 */
 	abstract void initializeProcessing();
 
 	/**
-	 * implementation should check interruption status using isInterrupted() and
-	 * exit ASAP on interruption
+	 * Implementation should check interruption status using isInterrupted() and
+	 * exit ASAP on interruption.
+	 * <p>
+	 * Unhandled RuntimeException terminates processing thread.
 	 */
 	abstract void processValue(V valueToProcess);
 
 	/**
-	 * implementation should check interruption status using isInterrupted() and
-	 * exit ASAP on interruption
+	 * Implementation should check interruption status using isInterrupted() and
+	 * exit ASAP on interruption.
+	 * <p>
+	 * Unhandled RuntimeException terminates processing thread.
 	 */
 	abstract void finalizeProcessing();
 }
