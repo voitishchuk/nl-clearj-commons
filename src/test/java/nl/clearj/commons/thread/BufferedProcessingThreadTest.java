@@ -1,6 +1,7 @@
 package nl.clearj.commons.thread;
 
 import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.fail;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -63,7 +64,6 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(2);
-		bufferedProcessingThread.start();
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.join();
@@ -101,7 +101,6 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(2);
-		bufferedProcessingThread.start();
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.put(new Object(), value3);
@@ -132,7 +131,6 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
-		bufferedProcessingThread.start();
 		bufferedProcessingThread.put(new Object(), new Object());
 		Thread.sleep(90);
 		assertEquals(0, processCount);
@@ -163,12 +161,149 @@ public class BufferedProcessingThreadTest {
 			}
 		};
 		bufferedProcessingThread.setProcessingTriggerSize(0);
-		bufferedProcessingThread.start();
 		for (int i = 1; i <= concurrencyTestSize; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
 		bufferedProcessingThread.join();
 		assertEquals(concurrencyTestSize, processCount);
+	}
+
+	@Test
+	public void testChangeOfFlushBufferMaxIntervalMs() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
+				"test thread", true) {
+
+			@Override
+			void initializeProcessing() {
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.put(new Object(), new Object());
+		Thread.sleep(90);
+		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
+		assertEquals(0, processCount);
+		Thread.sleep(20);
+		assertEquals(1, processCount);
+	}
+
+	@Test
+	public void testChangeOfProcessingTriggerSize() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
+				"test thread", true) {
+
+			@Override
+			void initializeProcessing() {
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.put(new Object(), new Object());
+		Thread.sleep(90);
+		bufferedProcessingThread.setProcessingTriggerSize(1);
+		assertEquals(0, processCount);
+		Thread.sleep(20);
+		assertEquals(1, processCount);
+	}
+
+	@Test
+	public void testProcessingTriggerSizeEqualsMaxSize() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
+
+			@Override
+			void initializeProcessing() {
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.setProcessingTriggerSize(2);
+		bufferedProcessingThread.setMaxSize(2);
+		bufferedProcessingThread.put(new Object(), new Object());
+		bufferedProcessingThread.put(new Object(), new Object());
+		assertEquals(2, processCount);
+	}
+
+	@Test
+	public void testProcessingTriggerSizeAboveMaxSize() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
+
+			@Override
+			void initializeProcessing() {
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.setProcessingTriggerSize(2);
+		try {
+			bufferedProcessingThread.setMaxSize(1);
+			fail("ProcessingTriggerSize not be higher than MaxSize");
+		} catch (IllegalArgumentException e) {
+		}
+		bufferedProcessingThread.setMaxSize(2);
+		try {
+			bufferedProcessingThread.setProcessingTriggerSize(3);
+			fail("ProcessingTriggerSize not be higher than MaxSize");
+		} catch (IllegalArgumentException e) {
+		}
+		bufferedProcessingThread.setProcessingTriggerSize(2);
+	}
+
+	@Test
+	public void testIgnoreItemsAboveLimit() throws InterruptedException {
+		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
+
+			@Override
+			void initializeProcessing() {
+				try {
+					Thread.sleep(100);
+				} catch (InterruptedException e) {
+				}
+			}
+
+			@Override
+			void processValue(Object valueToProcess) {
+				processCount++;
+			}
+
+			@Override
+			void finalizeProcessing() {
+			}
+		};
+		bufferedProcessingThread.setProcessingTriggerSize(2);
+		bufferedProcessingThread.setMaxSize(2);
+		for (int i = 0; i < 10; i++) {
+			bufferedProcessingThread.put(new Object(), new Object());
+		}
+		Thread.sleep(10);
+		assertEquals(2, processCount);
 	}
 
 	private static abstract class GiveTimeToProcessAfterInsertBufferedProcessingThread<K, V> extends

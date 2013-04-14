@@ -7,28 +7,51 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public abstract class BufferedProcessingThread<K, V> extends Thread {
 
-	private long flushBufferMaxIntervalMs = 4L * 60 * 60 * 1000;
-	private int processingTriggerSize = 10000;
-	private int maxSize = 2 * processingTriggerSize;
+	private static final long DEFAULT_FLUSH_INTERVAL_MS = 1L * 60 * 60 * 1000;
+	private static final int DEFAULT_TRIGGER_SIZE = 10000;
+
+	private long flushBufferMaxIntervalMs;
+	private int maxSize;
+	private int processingTriggerSize;
+
 	/** storage of key-values before processing is triggered */
 	private final Map<K, V> bufferToProcess = new ConcurrentHashMap<K, V>();
-	private long nextProcessingTime;
+	private long lastProcessingTime;
 
 	public BufferedProcessingThread(String threadName, boolean isDaemon) {
 		super(threadName);
 		setDaemon(isDaemon);
+		setFlushBufferMaxIntervalMs(DEFAULT_FLUSH_INTERVAL_MS);
+		setMaxSize(2 * DEFAULT_TRIGGER_SIZE);
+		setProcessingTriggerSize(DEFAULT_TRIGGER_SIZE);
+		registerLastProcessingNow();
+		start();
 	}
 
 	public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {
 		this.flushBufferMaxIntervalMs = flushBufferMaxIntervalMs;
-	}
-
-	public void setProcessingTriggerSize(int processingTriggerSize) {
-		this.processingTriggerSize = processingTriggerSize;
+		notifyWaitingProcessingThread();
 	}
 
 	public void setMaxSize(int maxSize) {
+		checkConsistency(processingTriggerSize, maxSize);
 		this.maxSize = maxSize;
+	}
+
+	public void setProcessingTriggerSize(int processingTriggerSize) {
+		checkConsistency(processingTriggerSize, maxSize);
+		this.processingTriggerSize = processingTriggerSize;
+		notifyWaitingProcessingThread();
+	}
+
+	private static void checkConsistency(int processingTriggerSize, int maxSize) {
+		if (processingTriggerSize > maxSize) {
+			throw new IllegalArgumentException("violation of constraint processingTriggerSize <= maxSize");
+		}
+	}
+
+	private void registerLastProcessingNow() {
+		lastProcessingTime = System.currentTimeMillis();
 	}
 
 	/**
@@ -38,21 +61,22 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		if (bufferToProcess.size() < maxSize) {
 			bufferToProcess.put(key, value);
 		}
-		if (isBufferBigEnough()) {
-			synchronized (this) {
-				notifyAll();
-			}
+		if (isBufferedEnoughToStartProcessing()) {
+			notifyWaitingProcessingThread();
 		}
 	}
 
-	private boolean isBufferBigEnough() {
+	private boolean isBufferedEnoughToStartProcessing() {
 		return bufferToProcess.size() >= processingTriggerSize;
+	}
+
+	private synchronized void notifyWaitingProcessingThread() {
+		notifyAll();
 	}
 
 	@Override
 	public void run() {
 		while (!isInterrupted()) {
-			nextProcessingTime = System.currentTimeMillis() + flushBufferMaxIntervalMs;
 			try {
 				waitBeforeNextProcessing();
 			} catch (InterruptedException e) {
@@ -66,17 +90,18 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	private void waitBeforeNextProcessing() throws InterruptedException {
 		long delayBeforeNextRun;
 		synchronized (this) {
-			while ((!isBufferBigEnough()) && ((delayBeforeNextRun = getDelayBeforeNextRun()) > 0)) {
+			while ((!isBufferedEnoughToStartProcessing()) && ((delayBeforeNextRun = getDelayBeforeNextRun()) > 0)) {
 				this.wait(delayBeforeNextRun);
 			}
 		}
 	}
 
 	private long getDelayBeforeNextRun() {
-		return nextProcessingTime - System.currentTimeMillis();
+		return (lastProcessingTime + flushBufferMaxIntervalMs) - System.currentTimeMillis();
 	}
 
 	private void processValues() {
+		registerLastProcessingNow();
 		initializeProcessing();
 		for (V valueProcess : pullValuesToProcess()) {
 			if (isInterrupted()) {
@@ -84,7 +109,7 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 				return;
 			}
 			// TODO catch RuntimeExcdeption
-			// TODO processed values
+			// TODO test processed values not null
 			processValue(valueProcess);
 		}
 		finalizeProcessing();
@@ -96,10 +121,6 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 			valuesToProcess.add(bufferToProcess.remove(key));
 		}
 		return valuesToProcess;
-	}
-
-	int size() {
-		return bufferToProcess.size();
 	}
 
 	/**
