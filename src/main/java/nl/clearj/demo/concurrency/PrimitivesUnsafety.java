@@ -5,6 +5,14 @@ import java.util.HashSet;
 import java.util.Random;
 import java.util.Set;
 
+/**
+ * Demonstrates that concurrent access to primitives is not safe. According to
+ * the Java Language Specification, access to primitives that do not fit in
+ * native word width is not required to be synchronized. This means access to
+ * 64-bits primitives such as long and double is not synchronized on 32-bit CPU.
+ * 
+ * @author Valeriy Voitishchuk
+ */
 public class PrimitivesUnsafety {
 
 	public static final Random random = new Random();
@@ -12,11 +20,11 @@ public class PrimitivesUnsafety {
 	public final Set<Long> pool;
 
 	private volatile long volatLong;
-	private long norLong;
+	private long normLong;
 
 	public PrimitivesUnsafety(int poolSize) {
 		pool = createPool(poolSize);
-		volatLong = norLong = pool.iterator().next();
+		volatLong = normLong = pool.iterator().next();
 	}
 
 	private static Set<Long> createPool(int poolSize) {
@@ -53,7 +61,7 @@ public class PrimitivesUnsafety {
 			public void run() {
 				while (true) {
 					for (long newValue : pool) {
-						norLong = newValue;
+						normLong = newValue;
 					}
 				}
 			}
@@ -67,8 +75,8 @@ public class PrimitivesUnsafety {
 					if (!pool.contains(volatLong)) {
 						System.out.println("unexpected volatile value: " + volatLong);
 					}
-					if (!pool.contains(norLong)) {
-						System.out.println("unexpected normal value: " + norLong);
+					if (!pool.contains(normLong)) {
+						System.out.println("unexpected normal value: " + normLong);
 					}
 				}
 			}
