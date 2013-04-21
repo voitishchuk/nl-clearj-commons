@@ -10,60 +10,30 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 
 	private static final Logger LOG = Logger.getLogger(BufferedProcessingThread.class.getName());
 
-	private static final long DEFAULT_FLUSH_INTERVAL_MS = 1L * 60 * 60 * 1000;
-	private static final int DEFAULT_TRIGGER_SIZE = 10000;
-
-	private long flushBufferMaxIntervalMs;
-	private int maxSize;
-	private int processingTriggerSize;
+	private final long flushBufferMaxIntervalMs;
+	private final int processingTriggerSize;
+	private final int maxSize;
 
 	/** storage of key-values before processing is triggered */
 	private final Map<K, V> bufferToProcess = new ConcurrentHashMap<K, V>();
 	private long lastProcessingTime;
 
-	public BufferedProcessingThread(String threadName, boolean isDaemon) {
-		super(threadName);
-		setDaemon(isDaemon);
-		setFlushBufferMaxIntervalMs(DEFAULT_FLUSH_INTERVAL_MS);
-		setMaxSize(2 * DEFAULT_TRIGGER_SIZE);
-		setProcessingTriggerSize(DEFAULT_TRIGGER_SIZE);
+	public BufferedProcessingThread(Configuration configuration) {
+		super(configuration.threadName);
+
+		checkConfiguration(configuration);
+
+		setDaemon(configuration.isDaemon);
+		flushBufferMaxIntervalMs = configuration.flushBufferMaxIntervalMs;
+		processingTriggerSize = configuration.processingTriggerSize;
+		maxSize = configuration.maxSize;
+
 		registerLastProcessingNow();
 		start();
 	}
 
-	/**
-	 * @param flushBufferMaxIntervalMs
-	 *            all buffered values will be processed after this time if the
-	 *            buffer size did not achieve trigger size
-	 */
-	public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {
-		this.flushBufferMaxIntervalMs = flushBufferMaxIntervalMs;
-		notifyWaitingProcessingThread();
-	}
-
-	/**
-	 * @param maxSize
-	 *            if processing of values is slower then arrival, then new
-	 *            values are ignored if buffer size achieved this size
-	 */
-	public void setMaxSize(int maxSize) {
-		checkConsistency(processingTriggerSize, maxSize);
-		this.maxSize = maxSize;
-	}
-
-	/**
-	 * @param processingTriggerSize
-	 *            if buffer size achieved this value this immediately wakes up
-	 *            processing thread of this object
-	 */
-	public void setProcessingTriggerSize(int processingTriggerSize) {
-		checkConsistency(processingTriggerSize, maxSize);
-		this.processingTriggerSize = processingTriggerSize;
-		notifyWaitingProcessingThread();
-	}
-
-	private static void checkConsistency(int processingTriggerSize, int maxSize) {
-		if (processingTriggerSize > maxSize) {
+	private static void checkConfiguration(Configuration configuration) {
+		if (configuration.processingTriggerSize > configuration.maxSize) {
 			throw new IllegalArgumentException("violation of constraint processingTriggerSize <= maxSize");
 		}
 	}
@@ -165,4 +135,57 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 	 * Unhandled RuntimeException terminates processing thread.
 	 */
 	abstract void finalizeProcessing();
+
+	public static class Configuration {
+
+		private static final long DEFAULT_FLUSH_INTERVAL_MS = 1L * 60 * 60 * 1000;
+		private static final int DEFAULT_TRIGGER_SIZE = 10000;
+
+		private String threadName = BufferedProcessingThread.class.getName();
+		private boolean isDaemon = true;
+		private long flushBufferMaxIntervalMs = DEFAULT_FLUSH_INTERVAL_MS;
+		private int processingTriggerSize = DEFAULT_TRIGGER_SIZE;
+		private int maxSize = 2 * DEFAULT_TRIGGER_SIZE;
+
+		public void setThreadName(String threadName) {
+			this.threadName = threadName;
+		}
+
+		/**
+		 * The Java Virtual Machine exits when the only threads running are all
+		 * daemon threads.
+		 */
+		public void setDaemon(boolean isDaemon) {
+			this.isDaemon = isDaemon;
+		}
+
+		/**
+		 * @param flushBufferMaxIntervalMs
+		 *            all buffered values will be processed after this time if
+		 *            the buffer size did not achieve trigger size
+		 */
+		public void setFlushBufferMaxIntervalMs(long flushBufferMaxIntervalMs) {
+			this.flushBufferMaxIntervalMs = flushBufferMaxIntervalMs;
+		}
+
+		/**
+		 * @param processingTriggerSize
+		 *            if buffer size achieved this value this immediately wakes
+		 *            up processing thread of this object
+		 */
+		public void setProcessingTriggerSize(int processingTriggerSize) {
+			this.processingTriggerSize = processingTriggerSize;
+		}
+
+		/**
+		 * @param maxSize
+		 *            if processing of values is slower then arrival, then new
+		 *            values are ignored if buffer size achieved this size
+		 */
+		public void setMaxSize(int maxSize) {
+			this.maxSize = maxSize;
+		}
+
+	}
+
 }
