@@ -7,11 +7,15 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.Set;
 
+import nl.clearj.commons.thread.BufferedProcessingThread.Configuration;
+
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 public class BufferedProcessingThreadTest {
+
+	private Configuration configuration;
 
 	private int initializeCount;
 	private int processCount;
@@ -20,6 +24,7 @@ public class BufferedProcessingThreadTest {
 
 	@Before
 	public void setUp() throws Exception {
+		configuration = new Configuration();
 		initializeCount = 0;
 		processCount = 0;
 		processedValues = new HashSet<Object>();
@@ -32,6 +37,7 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testBasicProcessing() throws InterruptedException {
+		configuration.setProcessingTriggerSize(2);
 		final Object value1 = new Object();
 		final Object value2 = new Object();
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
@@ -63,7 +69,6 @@ public class BufferedProcessingThreadTest {
 				interrupt();
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(2);
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.join();
@@ -75,6 +80,7 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testProcessingOfItemsInSeveralRuns() throws InterruptedException {
+		configuration.setProcessingTriggerSize(2);
 		final Object value1 = new Object();
 		final Object value2 = new Object();
 		final Object value3 = new Object();
@@ -100,7 +106,6 @@ public class BufferedProcessingThreadTest {
 				}
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(2);
 		bufferedProcessingThread.put(new Object(), value1);
 		bufferedProcessingThread.put(new Object(), value2);
 		bufferedProcessingThread.put(new Object(), value3);
@@ -114,8 +119,9 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testProcessingAfterMaxInterval() throws InterruptedException {
+		configuration.setFlushBufferMaxIntervalMs(100);
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
+				configuration) {
 
 			@Override
 			void initializeProcessing() {
@@ -130,7 +136,6 @@ public class BufferedProcessingThreadTest {
 			void finalizeProcessing() {
 			}
 		};
-		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
 		bufferedProcessingThread.put(new Object(), new Object());
 		Thread.sleep(90);
 		assertEquals(0, processCount);
@@ -140,9 +145,10 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testBufferConcurrentReadWrite() throws InterruptedException {
+		configuration.setProcessingTriggerSize(0);
 		final int concurrencyTestSize = 1000;
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
+				configuration) {
 
 			@Override
 			void initializeProcessing() {
@@ -160,7 +166,6 @@ public class BufferedProcessingThreadTest {
 				}
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(0);
 		for (int i = 1; i <= concurrencyTestSize; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
@@ -169,59 +174,9 @@ public class BufferedProcessingThreadTest {
 	}
 
 	@Test
-	public void testChangeOfFlushBufferMaxIntervalMs() throws InterruptedException {
-		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
-
-			@Override
-			void initializeProcessing() {
-			}
-
-			@Override
-			void processValue(Object valueToProcess) {
-				processCount++;
-			}
-
-			@Override
-			void finalizeProcessing() {
-			}
-		};
-		bufferedProcessingThread.put(new Object(), new Object());
-		Thread.sleep(90);
-		bufferedProcessingThread.setFlushBufferMaxIntervalMs(100);
-		assertEquals(0, processCount);
-		Thread.sleep(20);
-		assertEquals(1, processCount);
-	}
-
-	@Test
-	public void testChangeOfProcessingTriggerSize() throws InterruptedException {
-		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new BufferedProcessingThread<Object, Object>(
-				"test thread", true) {
-
-			@Override
-			void initializeProcessing() {
-			}
-
-			@Override
-			void processValue(Object valueToProcess) {
-				processCount++;
-			}
-
-			@Override
-			void finalizeProcessing() {
-			}
-		};
-		bufferedProcessingThread.put(new Object(), new Object());
-		Thread.sleep(90);
-		bufferedProcessingThread.setProcessingTriggerSize(1);
-		assertEquals(0, processCount);
-		Thread.sleep(20);
-		assertEquals(1, processCount);
-	}
-
-	@Test
 	public void testProcessingTriggerSizeEqualsMaxSize() throws InterruptedException {
+		configuration.setProcessingTriggerSize(2);
+		configuration.setMaxSize(2);
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
 
 			@Override
@@ -237,8 +192,6 @@ public class BufferedProcessingThreadTest {
 			void finalizeProcessing() {
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(2);
-		bufferedProcessingThread.setMaxSize(2);
 		bufferedProcessingThread.put(new Object(), new Object());
 		bufferedProcessingThread.put(new Object(), new Object());
 		assertEquals(2, processCount);
@@ -246,7 +199,10 @@ public class BufferedProcessingThreadTest {
 
 	@Test
 	public void testProcessingTriggerSizeAboveMaxSize() throws InterruptedException {
-		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
+		configuration.setProcessingTriggerSize(1);
+		configuration.setMaxSize(1);
+
+		new BufferedProcessingThread<Object, Object>(configuration) {
 
 			@Override
 			void initializeProcessing() {
@@ -254,30 +210,38 @@ public class BufferedProcessingThreadTest {
 
 			@Override
 			void processValue(Object valueToProcess) {
-				processCount++;
 			}
 
 			@Override
 			void finalizeProcessing() {
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(2);
+
+		configuration.setProcessingTriggerSize(2);
 		try {
-			bufferedProcessingThread.setMaxSize(1);
+			new BufferedProcessingThread<Object, Object>(configuration) {
+
+				@Override
+				void initializeProcessing() {
+				}
+
+				@Override
+				void processValue(Object valueToProcess) {
+				}
+
+				@Override
+				void finalizeProcessing() {
+				}
+			};
 			fail("ProcessingTriggerSize not be higher than MaxSize");
 		} catch (IllegalArgumentException e) {
 		}
-		bufferedProcessingThread.setMaxSize(2);
-		try {
-			bufferedProcessingThread.setProcessingTriggerSize(3);
-			fail("ProcessingTriggerSize not be higher than MaxSize");
-		} catch (IllegalArgumentException e) {
-		}
-		bufferedProcessingThread.setProcessingTriggerSize(2);
 	}
 
 	@Test
 	public void testIgnoreItemsAboveLimit() throws InterruptedException {
+		configuration.setProcessingTriggerSize(2);
+		configuration.setMaxSize(2);
 		BufferedProcessingThread<Object, Object> bufferedProcessingThread = new GiveTimeToProcessAfterInsertBufferedProcessingThread<Object, Object>() {
 
 			@Override
@@ -297,8 +261,6 @@ public class BufferedProcessingThreadTest {
 			void finalizeProcessing() {
 			}
 		};
-		bufferedProcessingThread.setProcessingTriggerSize(2);
-		bufferedProcessingThread.setMaxSize(2);
 		for (int i = 0; i < 10; i++) {
 			bufferedProcessingThread.put(new Object(), new Object());
 		}
@@ -306,13 +268,13 @@ public class BufferedProcessingThreadTest {
 		assertEquals(2, processCount);
 	}
 
-	private static abstract class GiveTimeToProcessAfterInsertBufferedProcessingThread<K, V> extends
+	private abstract class GiveTimeToProcessAfterInsertBufferedProcessingThread<K, V> extends
 			BufferedProcessingThread<K, V> {
 
 		private static final long SLEEP_AFTER_INSERT = 10;
 
 		public GiveTimeToProcessAfterInsertBufferedProcessingThread() {
-			super("test thread", true);
+			super(configuration);
 		}
 
 		@Override
