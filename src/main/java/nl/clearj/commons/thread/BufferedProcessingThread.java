@@ -53,16 +53,14 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		}
 		// TODO test this check
 		if (isBufferedEnoughToStartProcessing()) {
-			notifyWaitingProcessingThread();
+			synchronized (this) {
+				notifyAll();
+			}
 		}
 	}
 
 	private boolean isBufferedEnoughToStartProcessing() {
 		return bufferToProcess.size() >= processingTriggerSize;
-	}
-
-	private synchronized void notifyWaitingProcessingThread() {
-		notifyAll();
 	}
 
 	@Override
@@ -185,7 +183,6 @@ public abstract class BufferedProcessingThread<K, V> extends Thread {
 		public void setMaxSize(int maxSize) {
 			this.maxSize = maxSize;
 		}
-
 	}
 
 }
